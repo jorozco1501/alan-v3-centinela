@@ -1,37 +1,40 @@
 import yfinance as yf
 
-def analizar_option_chain(ticker_str, tipo='call'):
-    ticker = yf.Ticker(ticker_str)
+def obtener_mejor_contrato(ticker_simbolo):
+    ticker = yf.Ticker(ticker_simbolo)
     expiraciones = ticker.options
 
     if not expiraciones:
-        return "Sin expiraciones disponibles."
+        return None
 
-    expiracion = expiraciones[0]  # La más cercana
+    # Tomamos la expiración más cercana (ideal para intradía)
+    expiracion = expiraciones[0]
     cadena = ticker.option_chain(expiracion)
 
-    opciones = cadena.calls if tipo == 'call' else cadena.puts
+    contratos_call = cadena.calls
+    contratos_filtrados = []
 
-    mejores = opciones[
-        (opciones['volume'] > 100) & 
-        (opciones['impliedVolatility'] < 0.6) &
-        (opciones['strike'] > ticker.history(period="1d")['Close'].iloc[-1] if tipo == 'call'
-         else opciones['strike'] < ticker.history(period="1d")['Close'].iloc[-1])
-    ]
+    for _, row in contratos_call.iterrows():
+        contrato = {
+            "strike": row["strike"],
+            "tipo": "CALL",
+            "lastPrice": row["lastPrice"],
+            "volume": row["volume"],
+            "openInterest": row["openInterest"],
+            "impliedVolatility": row["impliedVolatility"],
+            "delta": row.get("delta", 0) or 0  # algunas versiones no traen delta
+        }
 
-    if mejores.empty:
-        return f"No se detectaron {tipo.upper()}s buenos para hoy."
+        if 0.10 <= contrato["lastPrice"] <= 3.00:
+            contratos_filtrados.append(contrato)
 
-    mejor = mejores.sort_values(by='volume', ascending=False).iloc[0]
-    mensaje = f"""
-Se detectó un posible {tipo.upper()}:
+    # Seleccionamos uno con delta medio
+    contrato_sugerido = next((c for c in contratos_filtrados if 0.38 <= c["delta"] <= 0.55), None)
 
-Ticker: {ticker_str}
-Strike: {mejor['strike']}
-Expira: {expiracion}
-Último precio del contrato: ${mejor['lastPrice']:.2f}
-Volumen: {mejor['volume']}
-IV: {mejor['impliedVolatility']:.2f}
-"""
-
-    return mensaje.strip()
+    return {
+        "strike": contrato_sugerido["strike"] if contrato_sugerido else None,
+        "tipo": "CALL",
+        "lastPrice": contrato_sugerido["lastPrice"] if contrato_sugerido else None,
+        "delta": contrato_sugerido["delta"] if contrato_sugerido else None,
+        "cadena_completa": contratos_filtrados
+    }
