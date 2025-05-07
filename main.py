@@ -1,57 +1,87 @@
-from flask import Flask, request
-import requests
+from flask import Flask
 import threading
-import time
-import datetime
-import yfinance as yf
-from option_chain import analizar_option_chain
+from scheduler import iniciar_scheduler
+from tendencia import obtener_tendencia
+from entrada_ideal import detectar_entrada
+from option_chain import obtener_mejor_contrato
+from codigo_negro import ejecutar_codigo_negro
+from codigos.codigo_fenix import ejecutar_codigo_fenix
+from codigos.codigo_vaca import ejecutar_codigo_vaca
+from grieta_latencia import detectar_grieta
+from utils.telegram_alerta import enviar_alerta
+from utils.logica_riesgo import calcular_riesgo
 
-# --- CONFIGURACIÓN ---
-TOKEN = '7729218005:AAGAEyLMvvijyhRd5QpD33U9CiYQalkxflg'
-API_URL = f'https://api.telegram.org/bot{TOKEN}/sendMessage'
-CHAT_ID = '7282485959'
-
-# --- BOT TELEGRAM ---
 app = Flask(__name__)
 
-def enviar_mensaje(chat_id, texto):
-    payload = {'chat_id': chat_id, 'text': texto}
-    requests.post(API_URL, json=payload)
+# --- CONFIGURACIÓN ---
+TICKER = "QQQ"
+MAX_PRECIO_ENTRADA = 3.00
+ultima_entrada = None
 
-@app.route('/', methods=['POST'])
-def webhook():
-    data = request.get_json()
-    if 'message' in data:
-        chat_id = data['message']['chat']['id']
-        texto = data['message'].get('text', '')
+def escanear_y_ejecutar():
+    global ultima_entrada
 
-        if texto == '/start':
-            respuesta = "Bienvenido al Alan Bot V3. Listo para ejecutar."
-        elif texto == '/negro':
-            respuesta = "Código NEGRO activado. Precisión táctica."
-        elif texto == '/fantasma':
-            respuesta = "Código Fantasma activado. Zona oscura en vigilancia."
-        elif texto == '/titan':
-            respuesta = "Código TITÁN activado. Swing Mode listo."
-        elif texto == '/vaca':
-            respuesta = "Código Vaca Entera activo. Vamos por todo."
+    tendencia = obtener_tendencia(TICKER)
+    patron, estructura = detectar_entrada(TICKER)
+    contrato = obtener_mejor_contrato(TICKER)
+
+    if not contrato:
+        print("Alan: No hay contrato disponible.")
+        return
+
+    precio_entrada = contrato['lastPrice']
+    if precio_entrada > MAX_PRECIO_ENTRADA:
+        print("Alan: Contrato fuera de rango ($).")
+        return
+
+    datos = {
+        "tendencia": tendencia,
+        "patron_velas": patron,
+        "estructura": estructura
+    }
+
+    # 1. Grieta Fantasma (alta prioridad)
+    if detectar_grieta(TICKER, contrato):
+        return
+
+    # 2. Sistema Modular de Códigos
+    codigo_activado = None
+    señal = None
+
+    señal = ejecutar_codigo_negro(datos, contrato)
+    if señal:
+        codigo_activado = "Código NEGRO"
+    else:
+        señal = ejecutar_codigo_fenix(datos, contrato)
+        if señal:
+            codigo_activado = "Código FÉNIX"
         else:
-            respuesta = "Comando no reconocido."
+            señal = ejecutar_codigo_vaca(datos, contrato)
+            if señal:
+                codigo_activado = "Código VACA ENTERA"
 
-        enviar_mensaje(chat_id, respuesta)
-    return 'OK'
+    # 3. Enviar alerta si hay código válido
+    if señal:
+        stop, target = calcular_riesgo(precio_entrada, señal["tipo"])
+        ganancia = ((target - precio_entrada) / precio_entrada) * 100
 
-# --- ESCANEO AUTOMÁTICO ---
-def escaneo_periodico():
-    while True:
-        ahora = datetime.datetime.now()
-        if ahora.weekday() < 5 and 7 <= ahora.hour < 14:
-            mensaje_call = analizar_option_chain("QQQ", tipo="call")
-            mensaje_put = analizar_option_chain("QQQ", tipo="put")
-            enviar_mensaje(CHAT_ID, f"--- ESCANEO AUTOMÁTICO ---\n{mensaje_call}\n\n{mensaje_put}")
-        time.sleep(300)  # Cada 5 minutos
+        mensaje = f"""{codigo_activado} ACTIVADO en {TICKER}
+Tendencia: {tendencia.upper()}
+Entrada tipo: {señal['tipo']}
+Precio entrada: ${precio_entrada:.2f}
+STOP: ${stop:.2f}
+TARGET: ${target:.2f}
+Ganancia esperada: {ganancia:.1f}%
+"""
 
-# --- EJECUCIÓN 24/7 ---
-if __name__ == '__main__':
-    threading.Thread(target=escaneo_periodico).start()
-    app.run(host='0.0.0.0', port=3000)
+        if mensaje != ultima_entrada:
+            enviar_alerta(mensaje)
+            ultima_entrada = mensaje
+        else:
+            print("Alan: Señal repetida. No se reenvía.")
+    else:
+        print("Alan: Sin señal táctica válida.")
+
+if __name__ == "__main__":
+    threading.Thread(target=iniciar_scheduler, args=(escanear_y_ejecutar,)).start()
+    app.run(host="0.0.0.0", port=3000)
