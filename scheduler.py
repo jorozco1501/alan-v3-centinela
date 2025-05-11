@@ -1,18 +1,17 @@
 import schedule
 import time
-import requests
+import threading
 
-def ejecutar_centinela():
-    url = "https://alan-v3-centinela.up.railway.app/scan"
-    try:
-        response = requests.get(url)
-        print(f"Escaneo ejecutado - Respuesta: {response.status_code}")
-    except Exception as e:
-        print(f"Error al ejecutar el escaneo: {e}")
+def tarea_programada():
+    print("Tarea automática ejecutada por Alan Bot")
 
-# Ejecutar cada 5 minutos
-schedule.every(5).minutes.do(ejecutar_centinela)
+def iniciar_scheduler():
+    schedule.every(10).seconds.do(tarea_programada)
 
-while True:
-    schedule.run_pending()
-    time.sleep(1)
+    def run_scheduler():
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
+
+    t = threading.Thread(target=run_scheduler)
+    t.start()
