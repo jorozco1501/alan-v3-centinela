@@ -12,7 +12,11 @@ from utils.telegram_alerta import enviar_alerta
 from utils.logica_riesgo import calcular_riesgo
 
 app = Flask(__name__)
-
+@app.route('/', methods=['POST'])
+def webhook():
+    data = request.get_json()
+    print("Mensaje recibido:", data)
+    return 'OK', 200
 # --- CONFIGURACIÓN ---
 TICKER = "QQQ"
 MAX_PRECIO_ENTRADA = 3.00
