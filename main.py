@@ -105,4 +105,4 @@ Ganancia esperada: {ganancia:.1f}%
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scheduler, args=(escanear_y_ejecutar,)).start()
-    app.run(host="0.0.0.0", port=3000)
+    app.run(host="0.0.0.0", port=8000)
