@@ -15,7 +15,18 @@ app = Flask(__name__)
 @app.route('/', methods=['POST'])
 def webhook():
     data = request.get_json()
-    print("Mensaje recibido:", data)
+
+    if 'message' in data:
+        texto = data['message'].get('text', '')
+        chat_id = data['message']['chat']['id']
+
+        if texto == '/start':
+            enviar_alerta(chat_id, "Bienvenido al Alan Bot V3. Listo para ejecutar.")
+        elif texto == '/negro':
+            enviar_alerta(chat_id, "Código Negro activado.")
+        elif texto == '/fantasma':
+            enviar_alerta(chat_id, "Código Fantasma activado.")
+        # y así con tus otros comandos
     return 'OK', 200
 # --- CONFIGURACIÓN ---
 TICKER = "QQQ"
