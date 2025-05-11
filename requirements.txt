@@ -1,4 +1,5 @@
-flask
-requests
-yfinance
-python-dotenv
+flask  
+requests  
+yfinance  
+python-dotenv  
+schedule
