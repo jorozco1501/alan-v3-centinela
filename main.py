@@ -23,10 +23,16 @@ def webhook():
         if texto == '/start':
             enviar_alerta(chat_id, "Bienvenido al Alan Bot V3. Listo para ejecutar.")
         elif texto == '/negro':
-            enviar_alerta(chat_id, "Código Negro activado.")
+            enviar_alerta(chat_id, "Código Negro activado.\nTáctica lista.")
         elif texto == '/fantasma':
-            enviar_alerta(chat_id, "Código Fantasma activado.")
-        # y así con tus otros comandos
+            enviar_alerta(chat_id, "Código Fantasma activado.\nUbicación segura.")
+        elif texto == '/titan':
+            enviar_alerta(chat_id, "Código TITÁN activado.\nSwing Mode.")
+        elif texto == '/vaca':
+            enviar_alerta(chat_id, "Código Vaca Entera activado.\nOportunidad completa.")
+        else:
+            enviar_alerta(chat_id, "Comando no reconocido.")
+
     return 'OK', 200
 # --- CONFIGURACIÓN ---
 TICKER = "QQQ"
